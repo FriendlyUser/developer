@@ -1,0 +1,50 @@
+
+{
+  "cars": [
+    {
+      "id": 1,
+      "make": "Toyota",
+      "model": "Camry",
+      "year": 2020,
+      "color": "Silver",
+      "price": 50,
+      "image": "/assets/images/car1.jpg"
+    },
+    {
+      "id": 2,
+      "make": "Honda",
+      "model": "Civic",
+      "year": 2019,
+      "color": "Red",
+      "price": 45,
+      "image": "/assets/images/car2.jpg"
+    },
+    {
+      "id": 3,
+      "make": "Ford",
+      "model": "Mustang",
+      "year": 2021,
+      "color": "Blue",
+      "price": 60,
+      "image": "/assets/images/car3.jpg"
+    },
+    {
+      "id": 4,
+      "make": "Chevrolet",
+      "model": "Camaro",
+      "year": 2018,
+      "color": "Black",
+      "price": 55,
+      "image": "/assets/images/car4.jpg"
+    },
+    {
+      "id": 5,
+      "make": "BMW",
+      "model": "X5",
+      "year": 2022,
+      "color": "White",
+      "price": 70,
+      "image": "/assets/images/car5.jpg"
+    }
+  ]
+}

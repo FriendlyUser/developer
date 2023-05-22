@@ -1,66 +1,82 @@
 import sys
 import os
 import ast
+import re
+import poe
 from time import sleep
+from revChatGPT.V1 import Chatbot
 
+access_token = os.environ["CHATGPT_TOKEN"]
+wrapper = Chatbot(config={
+    "access_token": access_token
+})
 generatedDir = "generated"
-openai_model = "gpt-4"  # or 'gpt-3.5-turbo',
-openai_model_max_tokens = 2000  # i wonder how to tweak this properly
+# openai_model = "gpt-3.5-turbo"  # or 'gpt-3.5-turbo',
+# openai_model_max_tokens = 2000  # i wonder how to tweak this properly
 
 def generate_response(system_prompt, user_prompt, *args):
-    import openai
-    import tiktoken
+    # import openai
+    # import tiktoken
 
-    def reportTokens(prompt):
-        encoding = tiktoken.encoding_for_model(openai_model)
-        # print number of tokens in light gray, with first 10 characters of prompt in green
-        print(
-            "\033[37m"
-            + str(len(encoding.encode(prompt)))
-            + " tokens\033[0m"
-            + " in prompt: "
-            + "\033[92m"
-            + prompt[:50]
-            + "\033[0m"
-        )
+    # def reportTokens(prompt):
+    #     encoding = tiktoken.encoding_for_model(openai_model)
+    #     # print number of tokens in light gray, with first 10 characters of prompt in green
+    #     print(
+    #         "\033[37m"
+    #         + str(len(encoding.encode(prompt)))
+    #         + " tokens\033[0m"
+    #         + " in prompt: "
+    #         + "\033[92m"
+    #         + prompt[:50]
+    #         + "\033[0m"
+    #     )
+    def send_message(prompt):
+        resp = {
+            "message": "",
+        }
+        prev_text = ""
+        for data in wrapper.ask(
+            prompt
+        ):
+            message = data["message"][len(prev_text):]
+            prev_text = data["message"]
+            resp["message"] += message
+        return resp["message"]
 
-    # Set up your OpenAI API credentials
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-
-    messages = []
-    messages.append({"role": "system", "content": system_prompt})
-    reportTokens(system_prompt)
-    messages.append({"role": "user", "content": user_prompt})
-    reportTokens(user_prompt)
+    # messages = []
+    # messages.append({"role": "system", "content": system_prompt})
+    # reportTokens(system_prompt)
+    # messages.append({"role": "user", "content": user_prompt})
+    # reportTokens(user_prompt)
     # loop thru each arg and add it to messages alternating role between "assistant" and "user"
-    role = "assistant"
-    for value in args:
-        messages.append({"role": role, "content": value})
-        reportTokens(value)
-        role = "user" if role == "assistant" else "assistant"
+    # role = "assistant"
+    # for value in args:
+    #     messages.append({"role": role, "content": value})
+    #     reportTokens(value)
+    #     role = "user" if role == "assistant" else "assistant"
 
-    params = {
-        "model": openai_model,
-        "messages": messages,
-        "max_tokens": openai_model_max_tokens,
-        "temperature": 0,
-    }
+    # params = {
+    #     "model": openai_model,
+    #     "messages": messages,
+    #     "max_tokens": openai_model_max_tokens,
+    #     "temperature": 0,
+    # }
 
     # Send the API request
+
     keep_trying = True
     while keep_trying:
         try:
-            response = openai.ChatCompletion.create(**params)
+            send_message(system_prompt)
+            response = send_message(user_prompt)
             keep_trying = False
         except Exception as e:
             # e.g. when the API is too busy, we don't want to fail everything
             print("Failed to generate response. Error: ", e)
-            sleep(30)
-            print("Retrying...")
-
-    # Get the reply from the API response
-    reply = response.choices[0]["message"]["content"]
-    return reply
+            exit(1)
+            # sleep(30)
+            # print("Retrying...")
+    return response
 
 
 def generate_file(
@@ -128,13 +144,26 @@ def main(prompt, directory=generatedDir, file=None):
     only list the filepaths you would write, and return them as a python list of strings.
     do not add any other explanation, only return a python list of strings.
     """,
-        prompt,
+        f"""intent: {prompt}
+        
+            only list the filepaths you would write, and return them as a python list of strings.
+            do not add any other explanation, only return a python list of strings.
+        """,
     )
     print(filepaths_string)
     # parse the result into a python list
     list_actual = []
     try:
-        list_actual = ast.literal_eval(filepaths_string)
+        try: 
+            list_actual = ast.literal_eval(filepaths_string)
+        except Exception as e:
+            # try to parse using regex
+            # find ```python and ending ```
+            start_line = filepaths_string.find("```python")
+            end_line = filepaths_string.find("```", start_line + 1)
+            # grab the code in between
+            list_raw = filepaths_string[start_line + 9 : end_line]
+            list_actual = ast.literal_eval(list_raw)
 
         # if shared_dependencies.md is there, read it in, else set it to None
         shared_dependencies = None
@@ -184,7 +213,17 @@ def main(prompt, directory=generatedDir, file=None):
                     shared_dependencies=shared_dependencies,
                     prompt=prompt,
                 )
-                write_file(filename, filecode, directory)
+
+                match = re.search(r"```(.+?)```", filecode, re.DOTALL)
+                if match:
+                     adjusted_code = match.group(1)
+                else:
+                    first_line = filecode.find("```")
+                    second_line = filecode.find("```", first_line + 1) 
+                    starting_code = filecode[:first_line]
+                    ending_code = filecode[second_line + 3 :]
+                    adjusted_code = filecode[first_line + 3 : second_line]
+                write_file(filename, adjusted_code, directory)
 
     except ValueError:
         print("Failed to parse result: " + result)
